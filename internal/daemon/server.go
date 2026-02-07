@@ -364,6 +364,7 @@ func (s *Server) Shutdown() error {
 		return nil
 	}
 	s.shutdown = true
+	close(s.done)
 	s.mu.Unlock()
 
 	// Close listener

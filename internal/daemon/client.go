@@ -149,9 +149,13 @@ func StartDaemonOnDemand() bool {
 		Setsid: true, // Create new session (detach from terminal)
 	}
 
-	// Redirect stdout/stderr to null
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+	// Redirect stdout/stderr to /dev/null
+	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	if err == nil {
+		cmd.Stdout = devNull
+		cmd.Stderr = devNull
+		defer devNull.Close()
+	}
 
 	if err := cmd.Start(); err != nil {
 		return false

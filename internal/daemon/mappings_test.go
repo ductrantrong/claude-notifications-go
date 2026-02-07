@@ -9,7 +9,7 @@ import (
 // saveTerminalEnv saves all terminal-related env vars and returns a restore function.
 func saveTerminalEnv(t *testing.T) func() {
 	t.Helper()
-	vars := []string{"TERM_PROGRAM", "VSCODE_INJECTION", "TERM_PROGRAM_VERSION"}
+	vars := []string{"TERM_PROGRAM", "VSCODE_INJECTION", "VSCODE_GIT_IPC_HANDLE"}
 	type envState struct {
 		value string
 		isSet bool
@@ -391,15 +391,15 @@ func TestGetTerminalName_VSCodeInjection(t *testing.T) {
 	}
 }
 
-func TestGetTerminalName_TermProgramVersion(t *testing.T) {
+func TestGetTerminalName_VSCodeGitIPC(t *testing.T) {
 	restore := saveTerminalEnv(t)
 	defer restore()
 
-	os.Setenv("TERM_PROGRAM_VERSION", "1.85.0")
+	os.Setenv("VSCODE_GIT_IPC_HANDLE", "/tmp/vscode-git-ipc.sock")
 
 	result := GetTerminalName()
 	if result != "Code" {
-		t.Errorf("GetTerminalName() with TERM_PROGRAM_VERSION = %q, want %q", result, "Code")
+		t.Errorf("GetTerminalName() with VSCODE_GIT_IPC_HANDLE = %q, want %q", result, "Code")
 	}
 }
 
@@ -467,11 +467,21 @@ func TestMappingConsistency_CommonTerminals(t *testing.T) {
 	}
 
 	for _, term := range terminals {
-		// Should not panic on any input
-		GetAppID(term)
-		GetWlrctlAppID(term)
-		GetKdotoolClass(term)
-		GetXdotoolClass(term)
-		GetSearchTerm(term)
+		// Should not panic and should return non-empty results
+		if r := GetAppID(term); r == "" {
+			t.Errorf("GetAppID(%q) returned empty", term)
+		}
+		if r := GetWlrctlAppID(term); r == "" {
+			t.Errorf("GetWlrctlAppID(%q) returned empty", term)
+		}
+		if r := GetKdotoolClass(term); r == "" {
+			t.Errorf("GetKdotoolClass(%q) returned empty", term)
+		}
+		if r := GetXdotoolClass(term); r == "" {
+			t.Errorf("GetXdotoolClass(%q) returned empty", term)
+		}
+		if r := GetSearchTerm(term); r == "" {
+			t.Errorf("GetSearchTerm(%q) returned empty", term)
+		}
 	}
 }

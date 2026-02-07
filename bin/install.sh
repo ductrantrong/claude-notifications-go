@@ -986,7 +986,9 @@ main() {
 
         # On Linux, also check GNOME activate-window extension
         if [ "$PLATFORM" = "linux" ]; then
-            install_gnome_activate_window_extension || true
+            if install_gnome_activate_window_extension; then
+                GNOME_EXT_INSTALLED=true
+            fi
         fi
 
         echo -e "${GREEN}✓ Setup complete${NC}"

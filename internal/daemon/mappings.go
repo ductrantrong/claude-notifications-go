@@ -133,7 +133,7 @@ func GetTerminalName() string {
 	}
 
 	// Check VS Code indicators
-	if os.Getenv("VSCODE_INJECTION") != "" || os.Getenv("TERM_PROGRAM_VERSION") != "" {
+	if os.Getenv("VSCODE_INJECTION") != "" || os.Getenv("VSCODE_GIT_IPC_HANDLE") != "" {
 		return "Code"
 	}
 
