@@ -818,13 +818,13 @@ install_gnome_activate_window_extension() {
     # Check if GNOME Shell is available
     if ! command -v gnome-shell &>/dev/null; then
         echo -e "${YELLOW}⚠ Skipping GNOME extension (gnome-shell not found)${NC}"
-        return 0
+        return 1
     fi
 
     # Check if gnome-extensions CLI exists
     if ! command -v gnome-extensions &>/dev/null; then
         echo -e "${YELLOW}⚠ Skipping GNOME extension (gnome-extensions not found)${NC}"
-        return 0
+        return 1
     fi
 
     # Check if extension is already enabled
@@ -938,7 +938,7 @@ install_gnome_activate_window_extension() {
         echo -e "${YELLOW}⚠ Extension installed but could not be enabled immediately${NC}"
         echo -e "${YELLOW}  You may need to log out and log back in, then run:${NC}"
         echo -e "${YELLOW}  gnome-extensions enable ${EXTENSION_UUID}${NC}"
-        return 0
+        return 1
     fi
 }
 
