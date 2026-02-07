@@ -8,7 +8,7 @@ require (
 	github.com/gen2brain/malgo v0.11.24
 	github.com/go-audio/aiff v1.1.0
 	github.com/go-audio/audio v1.0.0
-	github.com/godbus/dbus/v5 v5.1.0
+	github.com/godbus/dbus/v5 v5.2.2
 	github.com/google/uuid v1.6.0
 	github.com/gopxl/beep v1.4.1
 	github.com/stretchr/testify v1.11.1

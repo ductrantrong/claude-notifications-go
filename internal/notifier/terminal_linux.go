@@ -62,13 +62,9 @@ func sendLinuxNotification(title, body, appIcon string, cfg *config.Config) erro
 // sendViaDaemon sends a notification via the background daemon.
 // Returns an error if daemon is not available or fails.
 func sendViaDaemon(title, body string) error {
-	// Check if daemon is running, start on-demand if not
-	if !daemon.IsDaemonRunning() {
-		logging.Debug("Daemon not running, attempting to start on-demand")
-		if !daemon.StartDaemonOnDemand() {
-			return daemon.ErrDaemonNotAvailable
-		}
-		logging.Debug("Daemon started successfully")
+	// Start daemon on-demand (no-op if already running)
+	if !daemon.StartDaemonOnDemand() {
+		return daemon.ErrDaemonNotAvailable
 	}
 
 	// Create client and send notification

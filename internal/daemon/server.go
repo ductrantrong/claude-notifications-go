@@ -169,7 +169,10 @@ func (s *Server) handleConnection(conn net.Conn) {
 	s.updateActivity()
 
 	// Set read deadline
-	conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+	if err := conn.SetReadDeadline(time.Now().Add(30 * time.Second)); err != nil {
+		log.Printf("[ERROR] Failed to set read deadline: %v", err)
+		return
+	}
 
 	// Read request
 	decoder := json.NewDecoder(conn)
@@ -213,6 +216,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 		defer func() {
 			s.mu.Lock()
 			if !s.shutdown {
+				s.shutdown = true
 				close(s.done)
 			}
 			s.mu.Unlock()
@@ -339,6 +343,7 @@ func (s *Server) idleChecker() {
 				log.Printf("[INFO] Idle timeout reached (%v), shutting down", s.idleTimeout)
 				s.mu.Lock()
 				if !s.shutdown {
+					s.shutdown = true
 					close(s.done)
 				}
 				s.mu.Unlock()
@@ -401,5 +406,7 @@ func (s *Server) Shutdown() error {
 func (s *Server) sendError(conn net.Conn, msg string) {
 	resp := Response{Error: msg}
 	encoder := json.NewEncoder(conn)
-	encoder.Encode(resp)
+	if err := encoder.Encode(resp); err != nil {
+		log.Printf("[ERROR] Failed to send error response: %v", err)
+	}
 }

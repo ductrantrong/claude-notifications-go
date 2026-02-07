@@ -838,7 +838,7 @@ install_gnome_activate_window_extension() {
 
     # Get GNOME Shell version
     local gnome_version
-    gnome_version=$(gnome-shell --version 2>/dev/null | grep -oP '[\d]+\.[\d]+' || true)
+    gnome_version=$(gnome-shell --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || true)
 
     if [ -z "$gnome_version" ]; then
         echo -e "${YELLOW}⚠ Could not detect GNOME Shell version (click-to-focus will be disabled)${NC}"
@@ -875,7 +875,7 @@ install_gnome_activate_window_extension() {
 
     # Extract download URL from JSON response
     local download_url
-    download_url=$(echo "$ext_info" | grep -oP '"download_url"\s*:\s*"\K[^"]+' || true)
+    download_url=$(echo "$ext_info" | sed -n 's/.*"download_url"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' || true)
 
     if [ -z "$download_url" ]; then
         echo -e "${YELLOW}⚠ No compatible extension version found for GNOME Shell ${gnome_version}${NC}"
@@ -1089,8 +1089,11 @@ main() {
     fi
 
     # On Linux, install GNOME activate-window-by-title extension for click-to-focus
+    GNOME_EXT_INSTALLED=false
     if [ "$PLATFORM" = "linux" ]; then
-        install_gnome_activate_window_extension || true
+        if install_gnome_activate_window_extension; then
+            GNOME_EXT_INSTALLED=true
+        fi
     fi
 
     # Cleanup
@@ -1112,7 +1115,11 @@ main() {
         echo -e "${GREEN}✓${NC} Claude icon configured for notifications"
     fi
     if [ "$PLATFORM" = "linux" ]; then
-        echo -e "${GREEN}✓${NC} GNOME activate-window extension installed (click-to-focus)"
+        if [ "$GNOME_EXT_INSTALLED" = true ]; then
+            echo -e "${GREEN}✓${NC} GNOME activate-window extension installed (click-to-focus)"
+        else
+            echo -e "${YELLOW}⚠${NC} GNOME extension not installed (click-to-focus requires manual setup)"
+        fi
     fi
     echo -e "${GREEN}✓${NC} Ready to use!"
     echo ""

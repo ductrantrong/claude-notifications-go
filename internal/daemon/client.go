@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -97,7 +98,9 @@ func (c *Client) send(req Request) (*Response, error) {
 	defer conn.Close()
 
 	// Set deadlines
-	conn.SetDeadline(time.Now().Add(30 * time.Second))
+	if err := conn.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
+		return nil, fmt.Errorf("failed to set deadline: %w", err)
+	}
 
 	// Send request
 	encoder := json.NewEncoder(conn)
@@ -180,7 +183,7 @@ func findDaemonBinary() (string, error) {
 	if pluginRoot := os.Getenv("CLAUDE_PLUGIN_ROOT"); pluginRoot != "" {
 		// Try different binary names
 		for _, name := range []string{"claude-notifications", "focus-daemon"} {
-			path := pluginRoot + "/bin/" + name
+			path := filepath.Join(pluginRoot, "bin", name)
 			if _, err := os.Stat(path); err == nil {
 				return path, nil
 			}

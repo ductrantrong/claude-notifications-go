@@ -6,7 +6,6 @@ package daemon
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 )
@@ -26,6 +25,7 @@ func GetFocusMethods() []FocusMethod {
 		{"GNOME Shell FocusApp", TryGnomeFocusApp},
 		{"wlrctl", TryWlrctl},
 		{"kdotool", TryKdotool},
+		{"xdotool", TryXdotool},
 	}
 }
 
@@ -68,7 +68,7 @@ func TryActivateWindowByTitle(terminalName string) error {
 // TryGnomeShellEvalByTitle uses GNOME Shell's Eval to find and focus window by title.
 // Requires unsafe_mode or development-tools enabled.
 func TryGnomeShellEvalByTitle(terminalName string) error {
-	searchTerm := GetSearchTerm(terminalName)
+	searchTerm := escapeJS(GetSearchTerm(terminalName))
 
 	// JavaScript to find window by title and activate it
 	js := fmt.Sprintf(`
@@ -113,7 +113,7 @@ func TryGnomeShellEvalByTitle(terminalName string) error {
 // TryGnomeShellEval uses GNOME Shell's Eval method to activate an app.
 // Requires unsafe_mode or development-tools enabled.
 func TryGnomeShellEval(terminalName string) error {
-	appID := GetAppID(terminalName)
+	appID := escapeJS(GetAppID(terminalName))
 
 	// JavaScript to find and activate the app's windows
 	js := fmt.Sprintf(`
@@ -175,16 +175,16 @@ func TryWlrctl(terminalName string) error {
 	}
 
 	// Try app_id first (more reliable)
-	cmd := exec.Command("wlrctl", "toplevel", "focus", "app_id:code")
-	output, err := cmd.CombinedOutput()
-	if err == nil {
+	appID := GetWlrctlAppID(terminalName)
+	cmd := exec.Command("wlrctl", "toplevel", "focus", "app_id:"+appID)
+	if err := cmd.Run(); err == nil {
 		return nil
 	}
 
 	// Fallback to title
 	searchTerm := GetSearchTerm(terminalName)
 	cmd = exec.Command("wlrctl", "toplevel", "focus", "title:"+searchTerm)
-	output, err = cmd.CombinedOutput()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("wlrctl failed: %w, output: %s", err, string(output))
 	}
@@ -198,7 +198,8 @@ func TryKdotool(terminalName string) error {
 	}
 
 	// Search by class
-	searchCmd := exec.Command("kdotool", "search", "--class", "code")
+	className := GetKdotoolClass(terminalName)
+	searchCmd := exec.Command("kdotool", "search", "--class", className)
 	output, err := searchCmd.CombinedOutput()
 	outputStr := strings.TrimSpace(string(output))
 
@@ -215,56 +216,38 @@ func TryKdotool(terminalName string) error {
 	return nil
 }
 
-// GetAppID returns the .desktop app ID for a terminal name.
-func GetAppID(terminalName string) string {
-	switch strings.ToLower(terminalName) {
-	case "code", "vscode", "visual studio code":
-		return "code.desktop"
-	case "gnome-terminal":
-		return "org.gnome.Terminal.desktop"
-	case "konsole":
-		return "org.kde.konsole.desktop"
-	case "alacritty":
-		return "Alacritty.desktop"
-	case "kitty":
-		return "kitty.desktop"
-	case "wezterm":
-		return "org.wezfurlong.wezterm.desktop"
-	case "tilix":
-		return "com.gexperts.Tilix.desktop"
-	case "terminator":
-		return "terminator.desktop"
-	default:
-		return strings.ToLower(terminalName) + ".desktop"
-	}
-}
-
-// GetSearchTerm returns a window title search term for a terminal name.
-func GetSearchTerm(terminalName string) string {
-	switch strings.ToLower(terminalName) {
-	case "code", "vscode":
-		return "Visual Studio Code"
-	case "gnome-terminal":
-		return "Terminal"
-	default:
-		return terminalName
-	}
-}
-
-// GetTerminalName detects the current terminal from environment variables.
-func GetTerminalName() string {
-	// Try TERM_PROGRAM first (set by many terminals)
-	if termProg := os.Getenv("TERM_PROGRAM"); termProg != "" {
-		return termProg
+// TryXdotool uses xdotool for X11-based desktop environments
+// (XFCE, MATE, Cinnamon, i3, bspwm, and X11 sessions of GNOME/KDE).
+func TryXdotool(terminalName string) error {
+	if _, err := exec.LookPath("xdotool"); err != nil {
+		return fmt.Errorf("xdotool not installed")
 	}
 
-	// Check VS Code indicators
-	if os.Getenv("VSCODE_INJECTION") != "" || os.Getenv("TERM_PROGRAM_VERSION") != "" {
-		return "Code"
+	// Search by class name first (more reliable)
+	className := GetXdotoolClass(terminalName)
+	searchCmd := exec.Command("xdotool", "search", "--class", className)
+	output, err := searchCmd.CombinedOutput()
+	outputStr := strings.TrimSpace(string(output))
+
+	if err != nil || outputStr == "" {
+		// Fallback: search by window name
+		searchTerm := GetSearchTerm(terminalName)
+		searchCmd = exec.Command("xdotool", "search", "--name", searchTerm)
+		output, err = searchCmd.CombinedOutput()
+		outputStr = strings.TrimSpace(string(output))
 	}
 
-	// Fallback to generic terminal
-	return "Terminal"
+	if err != nil || outputStr == "" {
+		return fmt.Errorf("no windows found via xdotool")
+	}
+
+	// Take the first matching window
+	windowIDs := strings.Split(outputStr, "\n")
+	cmd := exec.Command("xdotool", "windowactivate", windowIDs[0])
+	if _, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("xdotool windowactivate failed: %w", err)
+	}
+	return nil
 }
 
 // DetectFocusTools returns a map of available focus tools.
@@ -272,7 +255,7 @@ func DetectFocusTools() map[string]bool {
 	tools := map[string]bool{}
 
 	// Check command-line tools
-	for _, tool := range []string{"wlrctl", "kdotool", "gdbus", "busctl"} {
+	for _, tool := range []string{"wlrctl", "kdotool", "xdotool", "gdbus", "busctl"} {
 		_, err := exec.LookPath(tool)
 		tools[tool] = err == nil
 	}
